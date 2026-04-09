@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from google_selector import list_sheets, choisir_feuille
+from ai_recommendation import *
 from analyse import *
 from analyse import (
     kpi_globaux,
@@ -267,8 +268,16 @@ with tab1:
     st.header("Analyse globale des appels")
 
     kpis = kpi_globaux(df)
+    if "Classification" in df.columns:
+        classifications_qualif = ["PEU INTERESSE", "INTERESSE", "TRES INTERESSE", "EDIFICIOS", "RDV LEADS", "WHATSAP"]
+        qualif_mask = df["Classification"].astype(str).str.upper().str.strip().isin([c.upper() for c in classifications_qualif])
+        appels_qualifies = qualif_mask.sum()
+        taux_qualifie = round(appels_qualifies / len(df) * 100, 1) if len(df) > 0 else 0
+    else:
+        appels_qualifies = None
+        taux_qualifie = None
 
-    c1, c2, c3, c4 = st.columns(4)
+    c1, c2, c3, c4, c5 = st.columns(5)
     c1.metric("Total appels", f"{kpis['total_appels']:,}")
     c2.metric("Appels utiles", f"{kpis['appels_utiles']:,}" if kpis['appels_utiles'] is not None else "—")
     c3.metric("Taux utiles", f"{kpis['taux_utiles_pct']}%" if kpis['taux_utiles_pct'] is not None else "—")
@@ -276,6 +285,7 @@ with tab1:
         "Durée moyenne",
         f"{kpis['duree_moyenne_sec']:.0f}s" if kpis['duree_moyenne_sec'] is not None else "—"
     )
+    c5.metric("Taux qualification", f"{taux_qualifie}%" if taux_qualifie is not None else "—")
 
     st.markdown("---")
 
@@ -842,415 +852,280 @@ with tab4:
 # ══════════════════════════════════════════════
 
 with tab5:
-    st.header("🤖 Assistant IA - Recommandations Intelligentes")
+    st.header("🤖 IA Décisionnelle - Recommandations Intelligentes")
     st.markdown("---")
-    
-    # Configuration de l'API DeepSeek
-    
-    
-    st.markdown("---")
-    
-    # Sélecteur de volet
-    volet = st.radio(
-        "Choisissez le type d'analyse",
-        options=[
-            "📊 Performance fournisseurs",
-            "🏠 Optimisation par type de logement",
-            "⏰ Optimisation temporelle",
-            "🚨 Détection d'anomalies",
-            "💡 Stratégie globale"
-        ],
-        horizontal=True,
-        help="Sélectionnez le domaine d'analyse pour lequel vous voulez des recommandations"
-    )
-    
-    st.markdown("---")
-    
-    # Bouton pour générer les recommandations
-    if st.button("🔮 Générer les recommandations IA", type="primary", use_container_width=True):
-        
-        # ============================================================
-        # VOTELET 1: PERFORMANCE FOURNISSEURS
-        # ============================================================
-        if volet == "📊 Performance fournisseurs":
-            st.subheader("📊 Analyse des performances fournisseurs")
-            
-            if "list_name" not in df.columns:
-                st.warning("⚠️ Colonne 'list_name' non trouvée")
+
+    # Initialisation Gemini
+    advisor = GeminiAdvisor()
+
+    if not advisor.is_configured:
+        st.error("""
+        ❌ **IA non configurée**
+
+        Créez le fichier `.streamlit/secrets.toml`:
+
+        ```toml
+        GEMINI_API_KEY = "votre_cle_api_ici"
+        ```
+
+        Obtenez une clé sur Google AI Studio
+        """)
+        st.stop()
+
+    st.success("✅ IA Gemini connectée")
+
+    # =========================
+    # APERÇU DES DONNÉES
+    # =========================
+    with st.expander("📊 Aperçu des données", expanded=False):
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            st.metric("Total appels", f"{len(df):,}")
+
+        with col2:
+            if "list_name" in df.columns:
+                st.metric("Fournisseurs", df["list_name"].nunique())
             else:
-                # Statistiques rapides
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric("Nombre de fournisseurs", df["list_name"].nunique())
-                with col2:
-                    total_appels = len(df)
-                    st.metric("Total appels analysés", f"{total_appels:,}")
-                with col3:
-                    if "taux_qualifies_pct" in df.columns or "_qualifie" in df.columns:
-                        taux_moyen = df["_qualifie"].mean() * 100 if "_qualifie" in df.columns else 0
-                        st.metric("Taux qualification moyen", f"{taux_moyen:.1f}%")
-                
-                st.markdown("---")
-                
-                # Top et bottom performers
-                df_fourn_summary = df.groupby("list_name").agg({
-                    "list_name": "count",
-                    "_qualifie": "mean" if "_qualifie" in df.columns else None,
-                    "_utile": "mean" if "_utile" in df.columns else None,
-                    "Duration_seconds": "mean" if "Duration_seconds" in df.columns else None
-                }).rename(columns={"list_name": "total_appels"})
-                
-                if "_qualifie" in df.columns:
-                    df_fourn_summary["taux_qualif"] = (df_fourn_summary["_qualifie"] * 100).round(1)
-                    df_fourn_summary = df_fourn_summary.sort_values("taux_qualif", ascending=False)
-                    
-                    col_left, col_right = st.columns(2)
-                    
-                    with col_left:
-                        st.subheader("🏆 Top 3 fournisseurs")
-                        top_3 = df_fourn_summary.head(3)
-                        for idx, (fournisseur, row) in enumerate(top_3.iterrows()):
-                            st.success(f"""
-                            **{idx+1}. {fournisseur}**  
-                            📞 {row['total_appels']:,} appels | 🎯 Taux qualif: {row['taux_qualif']}%
-                            """)
-                    
-                    with col_right:
-                        st.subheader("⚠️ Bottom 3 fournisseurs")
-                        bottom_3 = df_fourn_summary.tail(3)
-                        for idx, (fournisseur, row) in enumerate(bottom_3.iterrows()):
-                            st.warning(f"""
-                            **{idx+1}. {fournisseur}**  
-                            📞 {row['total_appels']:,} appels | 🎯 Taux qualif: {row['taux_qualif']}%
-                            """)
-                
-                st.markdown("---")
-                
-                # Recommandations IA (simulées pour l'instant)
-                st.subheader("💡 Recommandations IA")
-                
-                if st.session_state.get("api_key_configured", False):
-                    with st.spinner("L'IA analyse les données..."):
-                        # Ici vous appellerez DeepSeek API
-                        st.info("🔧 Intégration DeepSeek à venir - API configurée")
-                else:
-                    # Mode démo avec recommandations basées sur règles
-                    st.info("💡 Mode démo - Recommandations basées sur les règles métier")
-                    
-                    # Générer des recommandations basées sur les données
-                    recommendations = []
-                    
-                    for fournisseur in df["list_name"].unique()[:5]:
-                        df_f = df[df["list_name"] == fournisseur]
-                        total = len(df_f)
-                        
-                        if "_qualifie" in df_f.columns:
-                            taux = df_f["_qualifie"].mean() * 100
-                            
-                            if taux < 20:
-                                recommendations.append({
-                                    "fournisseur": fournisseur,
-                                    "niveau": "🔴 Critique",
-                                    "message": f"Taux de qualification très bas ({taux:.0f}%)",
-                                    "action": "Former l'équipe sur l'identification des leads qualifiés"
-                                })
-                            elif taux < 40:
-                                recommendations.append({
-                                    "fournisseur": fournisseur,
-                                    "niveau": "🟡 Moyen",
-                                    "message": f"Taux de qualification à améliorer ({taux:.0f}%)",
-                                    "action": "Revoir le script d'appel et les critères de qualification"
-                                })
-                            elif taux > 60:
-                                recommendations.append({
-                                    "fournisseur": fournisseur,
-                                    "niveau": "🟢 Excellent",
-                                    "message": f"Excellent taux de qualification ({taux:.0f}%)",
-                                    "action": "Partager les bonnes pratiques avec les autres fournisseurs"
-                                })
-                    
-                    if recommendations:
-                        for rec in recommendations:
-                            with st.expander(f"{rec['niveau']} - {rec['fournisseur']}"):
-                                st.markdown(f"**Problème:** {rec['message']}")
-                                st.markdown(f"**Action recommandée:** {rec['action']}")
-                    else:
-                        st.success("✅ Tous les fournisseurs ont un bon taux de qualification !")
-        
-        # ============================================================
-        # VOTELET 2: OPTIMISATION PAR TYPE DE LOGEMENT
-        # ============================================================
-        elif volet == "🏠 Optimisation par type de logement":
-            st.subheader("🏠 Analyse des types de logement")
-            
-            if "tipo_vivienda" not in df.columns:
-                st.warning("⚠️ Colonne 'tipo_vivienda' non trouvée")
+                st.metric("Fournisseurs", "N/A")
+
+        with col3:
+            if "tipo_vivienda" in df.columns:
+                st.metric("Types logement", df["tipo_vivienda"].nunique())
             else:
-                # Nettoyer les données
-                df_logement = df[df["tipo_vivienda"].notna()]
-                df_logement = df_logement[df_logement["tipo_vivienda"].astype(str).str.strip() != ""]
-                
-                if df_logement.empty:
-                    st.info("Aucune donnée valide sur les types de logement")
-                else:
-                    # Statistiques
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        st.metric("Types de logement", df_logement["tipo_vivienda"].nunique())
-                    with col2:
-                        top_logement = df_logement["tipo_vivienda"].mode().iloc[0]
-                        st.metric("Type le plus fréquent", top_logement)
-                    with col3:
-                        if "_qualifie" in df_logement.columns:
-                            taux_qualif_top = df_logement[df_logement["tipo_vivienda"] == top_logement]["_qualifie"].mean() * 100
-                            st.metric(f"Taux qualif {top_logement}", f"{taux_qualif_top:.0f}%")
-                    
-                    st.markdown("---")
-                    
-                    # Top logements par qualification
-                    st.subheader("📊 Performance par type de logement")
-                    
-                    perf_logement = df_logement.groupby("tipo_vivienda").agg({
-                        "tipo_vivienda": "count",
-                        "_qualifie": "mean" if "_qualifie" in df_logement.columns else None
-                    }).rename(columns={"tipo_vivienda": "total"})
-                    
-                    if "_qualifie" in perf_logement.columns:
-                        perf_logement["taux_qualif"] = (perf_logement["_qualifie"] * 100).round(1)
-                        perf_logement = perf_logement.sort_values("taux_qualif", ascending=False)
-                        
-                        fig = px.bar(
-                            perf_logement.head(10).reset_index(),
-                            x="taux_qualif",
-                            y="tipo_vivienda",
-                            orientation="h",
-                            text="taux_qualif",
-                            title="Top 10 des types de logement par taux de qualification",
-                            color="taux_qualif",
-                            color_continuous_scale="Greens"
+                st.metric("Types logement", "N/A")
+
+    st.markdown("---")
+
+    # =========================
+    # BOUTON ANALYSE
+    # =========================
+    col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
+
+    with col_btn2:
+        analyse_btn = st.button(
+            "🔮 LANCER L'ANALYSE IA",
+            type="primary",
+            use_container_width=True
+        )
+
+    if analyse_btn:
+        with st.spinner("🤖 Gemini analyse vos données..."):
+            resultat = advisor.analyser_tous_les_volets(df)
+
+        if resultat:
+            st.balloons()
+            st.success("✅ Analyse terminée !")
+            st.session_state.analyse_ia_resultat = resultat
+        else:
+            st.error("❌ Échec de l'analyse")
+
+    st.markdown("---")
+
+    # =========================
+    # SOUS-ONGLETS
+    # =========================
+    sub_tab1, sub_tab2, sub_tab3 = st.tabs([
+        "⏰ Analyse Horaires",
+        "🏢 Analyse Fournisseurs",
+        "🏠 Analyse Logements"
+    ])
+
+    # =========================
+    # TAB 1 : HORAIRES
+    # =========================
+    with sub_tab1:
+        st.subheader("⏰ Analyse des horaires")
+
+        if "analyse_ia_resultat" in st.session_state:
+            resultat = st.session_state.analyse_ia_resultat
+
+            if "analyse_horaire" in resultat:
+                h = resultat["analyse_horaire"]
+
+                col_h1, col_h2, col_h3 = st.columns(3)
+
+                with col_h1:
+                    st.metric("🏆 Meilleure heure", f"{h.get('meilleure_heure', 'N/A')}h")
+
+                with col_h2:
+                    st.metric("📊 Taux à cette heure", f"{h.get('meilleur_taux', 0)}%")
+
+                with col_h3:
+                    st.metric("📞 Heure max appels", f"{h.get('heure_plus_appels', 'N/A')}h")
+
+                if "performance_par_heure" in h:
+                    df_h = pd.DataFrame([
+                        {"heure": heur, "taux": d.get("taux", 0)}
+                        for heur, d in h["performance_par_heure"].items()
+                    ])
+
+                    if not df_h.empty:
+                        fig = px.line(
+                            df_h,
+                            x="heure",
+                            y="taux",
+                            markers=True,
+                            title="Taux par heure"
                         )
-                        fig.update_traces(texttemplate="%{text}%", textposition="outside")
+                        fig.add_hline(y=50, line_dash="dash", line_color="red")
                         st.plotly_chart(fig, use_container_width=True)
-                    
+
+                if "recommandations" in resultat and "horaires" in resultat["recommandations"]:
                     st.markdown("---")
-                    
-                    # Recommandations
-                    st.subheader("💡 Recommandations IA")
-                    
-                    # Identifier les opportunités
-                    if "_qualifie" in perf_logement.columns:
-                        mauvais_perf = perf_logement[perf_logement["taux_qualif"] < 30].head(3)
-                        bons_perf = perf_logement[perf_logement["taux_qualif"] > 60].head(3)
-                        
-                        if not mauvais_perf.empty:
-                            st.warning("⚠️ Types de logement à améliorer")
-                            for _, row in mauvais_perf.iterrows():
-                                st.markdown(f"""
-                                **{row['tipo_vivienda']}** - Taux: {row['taux_qualif']}%  
-                                💡 Action: Adapter le discours commercial pour ce type de logement
-                                """)
-                        
-                        if not bons_perf.empty:
-                            st.success("✅ Types de logement performants")
-                            for _, row in bons_perf.iterrows():
-                                st.markdown(f"""
-                                **{row['tipo_vivienda']}** - Taux: {row['taux_qualif']}%  
-                                💡 Action: Analyser les scripts gagnants et les reproduire
-                                """)
-        
-        # ============================================================
-        # VOTELET 3: OPTIMISATION TEMPORELLE
-        # ============================================================
-        elif volet == "⏰ Optimisation temporelle":
-            st.subheader("⏰ Analyse des créneaux optimaux")
-            
-            if "Timestamp" not in df.columns:
-                st.warning("⚠️ Colonne 'Timestamp' non trouvée")
+                    st.info(f"💡 {resultat['recommandations']['horaires']}")
             else:
-                # Préparer les données temporelles
-                df_time = df.copy()
-                df_time["heure"] = pd.to_datetime(df_time["Timestamp"], errors="coerce", dayfirst=True).dt.hour
-                df_time["jour"] = pd.to_datetime(df_time["Timestamp"], errors="coerce", dayfirst=True).dt.day_name()
-                df_time["mois"] = pd.to_datetime(df_time["Timestamp"], errors="coerce", dayfirst=True).dt.month
-                
-                # Meilleures heures
-                if "_qualifie" in df_time.columns:
-                    perf_heure = df_time.groupby("heure").agg({
-                        "_qualifie": "mean"
-                    }).reset_index()
-                    perf_heure["taux"] = (perf_heure["_qualifie"] * 100).round(1)
-                    
-                    meilleure_heure = perf_heure.loc[perf_heure["taux"].idxmax()]
-                    pire_heure = perf_heure.loc[perf_heure["taux"].idxmin()]
-                    
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        st.success(f"🌟 Meilleur créneau: {meilleure_heure['heure']:.0f}h\nTaux: {meilleure_heure['taux']}%")
-                    with col2:
-                        st.error(f"⚠️ Pire créneau: {pire_heure['heure']:.0f}h\nTaux: {pire_heure['taux']}%")
-                    
-                    # Graphique
-                    fig = px.line(
-                        perf_heure,
-                        x="heure",
-                        y="taux",
-                        title="Taux de qualification par heure",
-                        markers=True
+                st.info("Données horaires disponibles")
+        else:
+            st.info("📊 Lancez l'analyse")
+
+    # =========================
+    # TAB 2 : FOURNISSEURS
+    # =========================
+    with sub_tab2:
+        st.subheader("🏢 Analyse fournisseurs")
+
+        if "analyse_ia_resultat" in st.session_state:
+            resultat = st.session_state.analyse_ia_resultat
+
+            if "analyse_fournisseurs" in resultat:
+                df_f = pd.DataFrame(resultat["analyse_fournisseurs"])
+
+                if not df_f.empty:
+                    col_f1, col_f2, col_f3 = st.columns(3)
+
+                    with col_f1:
+                        st.metric("Nombre fournisseurs", len(df_f))
+
+                    with col_f2:
+                        meilleur = df_f.loc[df_f["taux_classification"].idxmax()]
+                        st.metric("🏆 Meilleur taux", f"{meilleur['taux_classification']}%", meilleur['nom'])
+
+                    with col_f3:
+                        pire = df_f.loc[df_f["taux_classification"].idxmin()]
+                        st.metric("⚠️ À améliorer", f"{pire['taux_classification']}%", pire['nom'])
+
+                    st.dataframe(
+                        df_f.sort_values("taux_classification", ascending=False),
+                        use_container_width=True
+                    )
+
+                    fig = px.bar(
+                        df_f.sort_values("taux_classification"),
+                        x="taux_classification",
+                        y="nom",
+                        orientation="h",
+                        color="taux_classification",
+                        color_continuous_scale="RdYlGn"
                     )
                     st.plotly_chart(fig, use_container_width=True)
-                    
-                    # Meilleurs jours
-                    perf_jour = df_time.groupby("jour").agg({
-                        "_qualifie": "mean"
-                    }).reset_index()
-                    perf_jour["taux"] = (perf_jour["_qualifie"] * 100).round(1)
-                    meilleur_jour = perf_jour.loc[perf_jour["taux"].idxmax()]
-                    
-                    st.info(f"📅 Meilleur jour: {meilleur_jour['jour']} (taux: {meilleur_jour['taux']}%)")
-                    
-                    # Recommandations
-                    st.markdown("---")
-                    st.subheader("💡 Recommandations IA")
-                    st.markdown(f"""
-                    ✅ **Planification optimale:**  
-                    - Concentrer les appels entre {meilleure_heure['heure']:.0f}h et {meilleure_heure['heure']+2:.0f}h  
-                    - Privilégier les {meilleur_jour['jour']} pour les campagnes importantes  
-                    
-                    ⚠️ **À éviter:**  
-                    - Éviter les appels vers {pire_heure['heure']:.0f}h (faible taux de qualification)  
-                    """)
-        
-        # ============================================================
-        # VOTELET 4: DÉTECTION D'ANOMALIES
-        # ============================================================
-        elif volet == "🚨 Détection d'anomalies":
-            st.subheader("🚨 Détection d'anomalies et alertes")
-            
-            anomalies = []
-            
-            # Anomalie 1: Taux de classification bas
-            if "_utile" in df.columns:
-                taux_classif = df["_utile"].mean() * 100
-                if taux_classif < 50:
-                    anomalies.append({
-                        "niveau": "🔴 Critique",
-                        "type": "Classification",
-                        "message": f"Seulement {taux_classif:.0f}% des appels sont classifiés",
-                        "action": "Mettre en place une obligation de classification"
-                    })
-            
-            # Anomalie 2: Fournisseurs problématiques
-            if "list_name" in df.columns and "_qualifie" in df.columns:
-                fourn_problemes = df.groupby("list_name")["_qualifie"].mean()
-                fourn_critiques = fourn_problemes[fourn_problemes < 0.2]
-                
-                for fournisseur in fourn_critiques.index:
-                    anomalies.append({
-                        "niveau": "🔴 Critique",
-                        "type": "Fournisseur",
-                        "message": f"{fournisseur} a un taux de qualification très bas ({fourn_problemes[fournisseur]*100:.0f}%)",
-                        "action": "Audit immédiat des pratiques de ce fournisseur"
-                    })
-            
-            # Anomalie 3: Type de logement problématique
-            if "tipo_vivienda" in df.columns and "_qualifie" in df.columns:
-                logement_problemes = df.groupby("tipo_vivienda")["_qualifie"].mean()
-                logement_critiques = logement_problemes[logement_problemes < 0.15]
-                
-                for logement in logement_critiques.index[:3]:
-                    anomalies.append({
-                        "niveau": "🟡 Attention",
-                        "type": "Logement",
-                        "message": f"Type '{logement}' a un faible taux de qualification ({logement_problemes[logement]*100:.0f}%)",
-                        "action": "Revoir l'approche commerciale pour ce segment"
-                    })
-            
-            # Affichage des anomalies
-            if anomalies:
-                for anomaly in anomalies:
-                    with st.expander(f"{anomaly['niveau']} - {anomaly['type']}"):
-                        st.markdown(f"**Problème détecté:** {anomaly['message']}")
-                        st.markdown(f"**Action recommandée:** {anomaly['action']}")
+
+                    if "recommandations" in resultat and "fournisseurs" in resultat["recommandations"]:
+                        st.markdown("---")
+                        st.success(f"💡 {resultat['recommandations']['fournisseurs']}")
             else:
-                st.success("✅ Aucune anomalie critique détectée !")
+                st.info("Données fournisseurs disponibles")
+        else:
+            st.info("📊 Lancez l'analyse")
+
+    # =========================
+    # TAB 3 : LOGEMENTS
+    # =========================
+    with sub_tab3:
+        st.subheader("🏠 Analyse logements")
+
+        if "analyse_ia_resultat" in st.session_state:
+            resultat = st.session_state.analyse_ia_resultat
+
+            if "analyse_logements" in resultat:
+                df_l = pd.DataFrame(resultat["analyse_logements"])
+
+                if not df_l.empty:
+                    col_l1, col_l2, col_l3 = st.columns(3)
+
+                    with col_l1:
+                        st.metric("Types logement", len(df_l))
+
+                    with col_l2:
+                        meilleur = df_l.loc[df_l["taux_classification"].idxmax()]
+                        st.metric("🏆 Top performance", f"{meilleur['taux_classification']}%", meilleur['type'])
+
+                    with col_l3:
+                        total_appels = df_l["appels"].sum()
+                        st.metric("Total appels", f"{total_appels:,}")
+
+                    st.dataframe(
+                        df_l.sort_values("taux_classification", ascending=False),
+                        use_container_width=True
+                    )
+
+                    col_g1, col_g2 = st.columns(2)
+
+                    with col_g1:
+                        fig = px.bar(
+                            df_l.head(10),
+                            x="taux_classification",
+                            y="type",
+                            orientation="h",
+                            color="taux_classification",
+                            color_continuous_scale="Greens"
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+
+                    with col_g2:
+                        fig2 = px.bar(
+                            df_l.head(10),
+                            x="appels",
+                            y="type",
+                            orientation="h",
+                            color="appels",
+                            color_continuous_scale="Blues"
+                        )
+                        st.plotly_chart(fig2, use_container_width=True)
+
+                    if "recommandations" in resultat and "logements" in resultat["recommandations"]:
+                        st.markdown("---")
+                        st.info(f"💡 {resultat['recommandations']['logements']}")
+            else:
+                st.info("Données logements disponibles")
+        else:
+            st.info("📊 Lancez l'analyse")
+
+    # =========================
+    # EXPORT + PRÉDICTION
+    # =========================
+    if "analyse_ia_resultat" in st.session_state:
+        resultat = st.session_state.analyse_ia_resultat
+
+        st.markdown("---")
+
+        if "prediction" in resultat:
+            st.subheader("🔮 Prédiction")
+            st.info(resultat["prediction"])
+
+        st.markdown("---")
+
+        export_json = json.dumps(resultat, ensure_ascii=False, indent=2)
+
+        st.download_button(
+            "📥 Export JSON",
+            data=export_json,
+            file_name="analyse_ia.json",
+            mime="application/json",
+            use_container_width=True
         
-        # ============================================================
-        # VOTELET 5: STRATÉGIE GLOBALE
-        # ============================================================
-        elif volet == "💡 Stratégie globale":
-            st.subheader("💡 Synthèse stratégique et plan d'action")
-            
-            # KPIs globaux
-            kpis = kpi_globaux(df)
-            
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("Total appels", f"{kpis['total_appels']:,}")
-            with col2:
-                st.metric("Taux classification", f"{kpis['taux_utiles_pct']}%" if kpis['taux_utiles_pct'] else "N/A")
-            with col3:
-                if "_qualifie" in df.columns:
-                    taux_qualif_global = df["_qualifie"].mean() * 100
-                    st.metric("Taux qualification global", f"{taux_qualif_global:.1f}%")
-            
-            st.markdown("---")
-            
-            # Plan d'action priorisé
-            st.subheader("📋 Plan d'action priorisé")
-            
-            actions = []
-            
-            # Action 1: Amélioration classification
-            if kpis['taux_utiles_pct'] and kpis['taux_utiles_pct'] < 60:
-                actions.append({
-                    "priorite": 1,
-                    "action": "Améliorer le taux de classification",
-                    "details": "Former les équipes à la classification systématique",
-                    "impact": "Élevé"
-                })
-            
-            # Action 2: Focus sur meilleurs créneaux
-            if "Timestamp" in df.columns:
-                actions.append({
-                    "priorite": 2,
-                    "action": "Optimiser les plannings",
-                    "details": "Concentrer les ressources sur les créneaux à fort taux de qualification",
-                    "impact": "Moyen"
-                })
-            
-            # Action 3: Benchmark fournisseurs
-            if "list_name" in df.columns and "_qualifie" in df.columns:
-                actions.append({
-                    "priorite": 3,
-                    "action": "Partager les bonnes pratiques",
-                    "details": "Organiser une session entre fournisseurs pour échanger sur les scripts gagnants",
-                    "impact": "Élevé"
-                })
-            
-            # Afficher le plan d'action
-            for action in actions:
-                with st.container():
-                    st.markdown(f"""
-                    **Priorité {action['priorite']}** - {action['action']}  
-                    📌 {action['details']}  
-                    🎯 Impact: {action['impact']}
-                    """)
-                    st.markdown("---")
-            
-            # Prédictions
-            st.subheader("🔮 Prédictions et tendances")
-            
-            if "Timestamp" in df.columns and len(df) > 100:
-                st.info("""
-                📈 **Tendances observées:**  
-                - Le taux de qualification a tendance à augmenter sur les créneaux matinaux  
-                - Certains types de logement montrent une croissance des appels qualifiés  
-                
-                🎯 **Prédiction pour le mois prochain:**  
-                Une augmentation de 15-20% des appels qualifiés si les recommandations sont appliquées
+        )
+        if "resume_executif" in resultat:
+            st.subheader("📌 Résumé exécutif")
+            st.info(resultat["resume_executif"])
+
+        if "actions_prioritaires" in resultat:
+            st.subheader("🚀 Actions prioritaires")
+            for action in resultat["actions_prioritaires"]:
+                st.markdown(f"""
+                **👉 {action['action']}**  
+                📌 Pourquoi: {action['pourquoi']}  
+                🎯 Impact: {action['impact']}
                 """)
-            else:
-                st.info("Données insuffisantes pour générer des prédictions fiables")
-    
-    else:
-        st.info("👆 Cliquez sur 'Générer les recommandations IA' pour commencer l'analyse")
+
+    st.markdown("---")

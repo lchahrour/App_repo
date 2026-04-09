@@ -74,6 +74,16 @@ def kpi_globaux(df: pd.DataFrame) -> dict:
         }
 
     # Calcul des appels utiles (classification valide)
+    # Calcul du taux qualifié (appels avec classification dans la liste spécifique)
+    if "Classification" in df.columns:
+        classifications_qualif = ["PEU INTERESSE", "INTERESSE", "TRES INTERESSE", "EDIFICIOS", "RDV LEADS", "WHATSAP"]
+        qualif_mask = df["Classification"].astype(str).str.upper().str.strip().isin([c.upper() for c in classifications_qualif])
+        appels_qualifies = qualif_mask.sum()
+        taux_qualifie = round(appels_qualifies / len(df) * 100, 1) if len(df) > 0 else 0
+    else:
+        appels_qualifies = None
+        taux_qualifie = None
+        
     if "Classification" in df.columns:
         # Compter les appels où la classification est utile
         appels_utiles = int(_est_utile(df["Classification"]).sum())
