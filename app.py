@@ -852,27 +852,44 @@ with tab4:
 # ══════════════════════════════════════════════
 
 with tab5:
+    
     st.header("🤖 IA Décisionnelle - Recommandations Intelligentes")
     st.markdown("---")
-
-    # Initialisation Gemini
-    advisor = GeminiAdvisor()
-
-    if not advisor.is_configured:
-        st.error("""
-        ❌ **IA non configurée**
-
-        Créez le fichier `.streamlit/secrets.toml`:
-
-        ```toml
-        GEMINI_API_KEY = "votre_cle_api_ici"
-        ```
-
-        Obtenez une clé sur Google AI Studio
-        """)
+    
+    # Récupérer la clé depuis session state ou la demander
+    if "gemini_api_key" not in st.session_state:
+        st.session_state.gemini_api_key = ""
+    
+    api_key = st.text_input(
+        "🔑 Clé API Gemini",
+        value=st.session_state.gemini_api_key,
+        type="password",
+        placeholder="Entrez votre clé API Gemini",
+        help="Obtenez une clé sur https://makersuite.google.com/app/apikey"
+    )
+    
+    if api_key:
+        st.session_state.gemini_api_key = api_key
+    
+    if not api_key:
+        st.warning("⚠️ Veuillez entrer votre clé API Gemini")
         st.stop()
-
+    
+    advisor = GeminiAdvisor(api_key=api_key)
+    
+    if not advisor.is_configured:
+        st.error("❌ Clé API invalide. Vérifiez votre clé (doit commencer par 'AIza')")
+        st.stop()
+    
     st.success("✅ IA Gemini connectée")
+    import google.generativeai as genai
+
+    genai.configure(api_key="AIzaSyCNMlgxYxuST69ZbyEFN33AHoSMVISUWQM")
+    for m in genai.list_models():
+        if "generateContent" in m.supported_generation_methods:
+            print(m.name)
+    
+    # ... reste du code
 
     # =========================
     # APERÇU DES DONNÉES
