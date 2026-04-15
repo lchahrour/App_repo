@@ -447,21 +447,21 @@ def logement_par_fournisseur(df: pd.DataFrame) -> pd.DataFrame:
     Analyse du type de logement par fournisseur
     Retourne pour chaque fournisseur la répartition des types de logement
     """
-    if "list_name" not in df.columns or "tipo_vivienda" not in df.columns:
+    if "list_name" not in df.columns or "piso_casa" not in df.columns:
         return pd.DataFrame()
     
     # Nettoyer les données
     df_clean = df.copy()
-    df_clean["tipo_vivienda"] = df_clean["tipo_vivienda"].astype(str).str.strip()
-    df_clean = df_clean[df_clean["tipo_vivienda"].notna()]
-    df_clean = df_clean[df_clean["tipo_vivienda"] != ""]
-    df_clean = df_clean[df_clean["tipo_vivienda"] != "nan"]
+    df_clean["piso_casa"] = df_clean["piso_casa"].astype(str).str.strip()
+    df_clean = df_clean[df_clean["piso_casa"].notna()]
+    df_clean = df_clean[df_clean["piso_casa"] != ""]
+    df_clean = df_clean[df_clean["piso_casa"] != "nan"]
     
     if df_clean.empty:
         return pd.DataFrame()
     
     # Créer un tableau croisé
-    cross = pd.crosstab(df_clean["list_name"], df_clean["tipo_vivienda"])
+    cross = pd.crosstab(df_clean["list_name"], df_clean["piso_casa"])
     
     # Ajouter le total par fournisseur
     cross["total_appels"] = cross.sum(axis=1)
@@ -485,15 +485,15 @@ def top_logement_par_fournisseur(df: pd.DataFrame, top_n: int = 3) -> pd.DataFra
     """
     Pour chaque fournisseur, retourne le(s) type(s) de logement le(s) plus fréquent(s)
     """
-    if "list_name" not in df.columns or "tipo_vivienda" not in df.columns:
+    if "list_name" not in df.columns or "piso_casa" not in df.columns:
         return pd.DataFrame()
     
     # Nettoyer les données
     df_clean = df.copy()
-    df_clean["tipo_vivienda"] = df_clean["tipo_vivienda"].astype(str).str.strip()
-    df_clean = df_clean[df_clean["tipo_vivienda"].notna()]
-    df_clean = df_clean[df_clean["tipo_vivienda"] != ""]
-    df_clean = df_clean[df_clean["tipo_vivienda"] != "nan"]
+    df_clean["piso_casa"] = df_clean["piso_casa"].astype(str).str.strip()
+    df_clean = df_clean[df_clean["piso_casa"].notna()]
+    df_clean = df_clean[df_clean["piso_casa"] != ""]
+    df_clean = df_clean[df_clean["piso_casa"] != "nan"]
     
     if df_clean.empty:
         return pd.DataFrame()
@@ -523,8 +523,8 @@ def classification_par_type_logement(df: pd.DataFrame) -> pd.DataFrame:
     df_clean = df.copy()
     df_clean["tipo_vivienda"] = df_clean["tipo_vivienda"].astype(str).str.strip()
     df_clean = df_clean[df_clean["tipo_vivienda"].notna()]
-    df_clean = df_clean[df_clean["tipo_vivienda"] != ""]
-    df_clean = df_clean[df_clean["tipo_vivienda"] != "nan"]
+    df_clean = df_clean[df_clean["piso_casa"] != ""]
+    df_clean = df_clean[df_clean["piso_casa"] != "nan"]
     
     # Exclure les classifications non utiles
     df_clean = df_clean[_est_utile(df_clean["Classification"])]
@@ -533,7 +533,7 @@ def classification_par_type_logement(df: pd.DataFrame) -> pd.DataFrame:
         return pd.DataFrame()
     
     # Tableau croisé
-    cross = pd.crosstab(df_clean["tipo_vivienda"], df_clean["Classification"])
+    cross = pd.crosstab(df_clean["piso_casa"], df_clean["Classification"])
     
     # Ajouter le total
     cross["total"] = cross.sum(axis=1)
@@ -546,18 +546,18 @@ def classification_par_type_logement(df: pd.DataFrame) -> pd.DataFrame:
 # 4. ANALYSE MÉTIER — LOGEMENT
 # ─────────────────────────────────────────────
 
-def appels_par_tipo_vivienda(df: pd.DataFrame) -> pd.DataFrame:
-    """Répartition des appels par tipo_vivienda."""
-    if "tipo_vivienda" not in df.columns:
+def appels_par_piso_casa(df: pd.DataFrame) -> pd.DataFrame:
+    """Répartition des appels par piso_casa."""
+    if "piso_casa" not in df.columns:
         return pd.DataFrame()
     counts = (
-        df["tipo_vivienda"]
+        df["piso_casa"]
         .astype(str).str.strip()
         .replace({"": pd.NA, "nan": pd.NA, "None": pd.NA})
         .value_counts(dropna=True)
         .reset_index()
     )
-    counts.columns = ["tipo_vivienda", "count"]
+    counts.columns = ["piso_casa", "count"]
     counts["pct"] = (counts["count"] / counts["count"].sum() * 100).round(1)
     return counts
 
@@ -602,3 +602,171 @@ def statistiques_classification(df: pd.DataFrame) -> dict:
         "classifications_vides": vides,
         "taux_valides_pct": round(valides / total * 100, 1) if total > 0 else 0
     }
+# ─────────────────────────────────────────────
+# 7. ANALYSE DÉTAILLÉE PAR TYPE DE LOGEMENT
+# ─────────────────────────────────────────────
+
+def analyse_par_type_logement(df: pd.DataFrame) -> dict:
+    """
+    Analyse détaillée pour chaque type de logement (piso_casa)
+    Retourne pour chaque type: classification, résultats, métriques
+    """
+    if "piso_casa" not in df.columns:
+        return {"error": "Colonne 'piso_casa' non trouvée"}
+    
+    if "Classification" not in df.columns:
+        return {"error": "Colonne 'Classification' non trouvée"}
+    
+    resultats = {}
+    
+    # Nettoyer les données
+    df_clean = df.copy()
+    df_clean["piso_casa"] = df_clean["piso_casa"].astype(str).str.strip()
+    df_clean["Classification"] = df_clean["Classification"].astype(str).str.strip()
+    
+    # Exclure les valeurs vides
+    df_clean = df_clean[
+        (df_clean["piso_casa"].notna()) & 
+        (df_clean["piso_casa"] != "") & 
+        (df_clean["piso_casa"] != "nan")
+    ]
+    
+    # Liste des types de logement uniques
+    types_logement = df_clean["piso_casa"].unique()
+    
+    for type_log in types_logement:
+        # Filtrer pour ce type
+        df_type = df_clean[df_clean["piso_casa"] == type_log]
+        
+        # Statistiques générales
+        total_appels = len(df_type)
+        
+        # Classification - exclure "non trouvé" et vides
+        classifications_valides = df_type[~df_type["Classification"].str.lower().isin(["", "nan", "none", "non trouve", "non trouvé"])]
+        appels_utiles = len(classifications_valides)
+        taux_utiles = round(appels_utiles / total_appels * 100, 1) if total_appels > 0 else 0
+        
+        # Appels qualifiés (intéressés)
+        classifications_qualif = ["PEU INTERESSE", "INTERESSE", "TRES INTERESSE", "EDIFICIOS", "RDV LEADS", "WHATSAP"]
+        appels_qualifies = classifications_valides[
+            classifications_valides["Classification"].str.upper().isin([c.upper() for c in classifications_qualif])
+        ].shape[0]
+        taux_qualifies = round(appels_qualifies / total_appels * 100, 1) if total_appels > 0 else 0
+        
+        # Répartition des classifications
+        repartition = classifications_valides["Classification"].value_counts().to_dict()
+        
+        # Top 3 des classifications
+        top_classifications = classifications_valides["Classification"].value_counts().head(3).to_dict()
+        
+        # Durée moyenne
+        duree_moyenne = None
+        if "Duration_seconds" in df_type.columns:
+            duree_moyenne = round(pd.to_numeric(df_type["Duration_seconds"], errors="coerce").mean(), 1)
+        
+        resultats[type_log] = {
+            "total_appels": total_appels,
+            "appels_utiles": appels_utiles,
+            "taux_utiles_pct": taux_utiles,
+            "appels_qualifies": appels_qualifies,
+            "taux_qualifies_pct": taux_qualifies,
+            "duree_moyenne_sec": duree_moyenne,
+            "repartition_classifications": repartition,
+            "top_classifications": top_classifications
+        }
+    
+    return resultats
+
+
+def comparer_types_logement(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Compare les performances entre différents types de logement
+    Retourne un DataFrame avec les métriques comparatives
+    """
+    if "piso_casa" not in df.columns or "Classification" not in df.columns:
+        return pd.DataFrame()
+    
+    # Nettoyer
+    df_clean = df.copy()
+    df_clean["piso_casa"] = df_clean["piso_casa"].astype(str).str.strip()
+    df_clean["Classification"] = df_clean["Classification"].astype(str).str.strip()
+    
+    df_clean = df_clean[
+        (df_clean["piso_casa"].notna()) & 
+        (df_clean["piso_casa"] != "") & 
+        (df_clean["piso_casa"] != "nan")
+    ]
+    
+    # Définir les classifications qualifiées
+    classifications_qualif = ["PEU INTERESSE", "INTERESSE", "TRES INTERESSE", "EDIFICIOS", "RDV LEADS", "WHATSAP"]
+    
+    resultats = []
+    
+    for type_log in df_clean["piso_casa"].unique():
+        df_type = df_clean[df_clean["piso_casa"] == type_log]
+        
+        total = len(df_type)
+        
+        # Classifications valides
+        valides = df_type[~df_type["Classification"].str.lower().isin(["", "nan", "none", "non trouve", "non trouvé"])]
+        nb_valides = len(valides)
+        
+        # Qualifiés
+        qualifies = valides[valides["Classification"].str.upper().isin([c.upper() for c in classifications_qualif])]
+        nb_qualifies = len(qualifies)
+        
+        resultats.append({
+            "type_logement": type_log,
+            "total_appels": total,
+            "appels_valides": nb_valides,
+            "taux_valides": round(nb_valides / total * 100, 1) if total > 0 else 0,
+            "appels_qualifies": nb_qualifies,
+            "taux_qualifies": round(nb_qualifies / total * 100, 1) if total > 0 else 0
+        })
+    
+    df_resultat = pd.DataFrame(resultats)
+    df_resultat = df_resultat.sort_values("taux_qualifies", ascending=False)
+    
+    return df_resultat
+
+
+def classification_detaillee_par_type(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Retourne la classification détaillée pour chaque type de logement
+    Format: type_logement, classification, count, pct
+    """
+    if "piso_casa" not in df.columns or "Classification" not in df.columns:
+        return pd.DataFrame()
+    
+    # Nettoyer
+    df_clean = df.copy()
+    df_clean["piso_casa"] = df_clean["piso_casa"].astype(str).str.strip()
+    df_clean["Classification"] = df_clean["Classification"].astype(str).str.strip()
+    
+    # Exclure les valeurs invalides
+    df_clean = df_clean[
+        (df_clean["piso_casa"].notna()) & 
+        (df_clean["piso_casa"] != "") & 
+        (df_clean["piso_casa"] != "nan") &
+        (~df_clean["Classification"].str.lower().isin(["", "nan", "none", "non trouve", "non trouvé"]))
+    ]
+    
+    if df_clean.empty:
+        return pd.DataFrame()
+    
+    # Tableau croisé
+    cross = pd.crosstab(df_clean["piso_casa"], df_clean["Classification"])
+    
+    # Ajouter les totaux
+    cross["total"] = cross.sum(axis=1)
+    
+    # Convertir en format long pour visualisation
+    long_df = cross.reset_index().melt(
+        id_vars=["piso_casa", "total"], 
+        var_name="Classification", 
+        value_name="count"
+    )
+    long_df = long_df[long_df["count"] > 0]
+    long_df["pct_du_type"] = (long_df["count"] / long_df["total"] * 100).round(1)
+    
+    return long_df

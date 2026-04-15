@@ -14,7 +14,7 @@ from analyse import (
     appels_par_fournisseur,
     classification_par_fournisseur,
     appels_utiles_par_ville,
-    appels_par_tipo_vivienda,
+    appels_par_piso_casa,
     taux_remplissage_code_postal,
     comparer_codes_postaux,
     analyse_fiabilite_par_fournisseur,
@@ -800,53 +800,319 @@ with tab3:
 # TAB 4 — LOGEMENTS
 # ══════════════════════════════════════════════
 
+# ══════════════════════════════════════════════
+# TAB 4 — LOGEMENTS (avec analyse par type)
+# ══════════════════════════════════════════════
+
 with tab4:
-    st.header("Analyse métier — Logements")
-
-    df_tipo = appels_par_tipo_vivienda(df)
-
-    if df_tipo.empty:
-        st.info("Colonne tipo_vivienda absente ou vide.")
+    st.header("🏠 Analyse des logements")
+    
+    # Vérifier si la colonne existe
+    if "piso_casa" not in df.columns:
+        st.warning("⚠️ Colonne 'piso_casa' non trouvée dans les données")
+        st.info("Ajoutez une colonne 'piso_casa' pour analyser les types de logement")
     else:
-        col_p, col_b = st.columns(2)
+        # =========================================================
+        # SECTION 1: VUE D'ENSEMBLE DES TYPES DE LOGEMENT
+        # =========================================================
+        st.subheader("📊 Vue d'ensemble par type de logement")
+        
+        # Analyse détaillée
+        analyse_types = analyse_par_type_logement(df)
+        
+        if "error" not in analyse_types:
+            # Tableau comparatif des performances
+            df_comparaison = comparer_types_logement(df)
+            
+            if not df_comparaison.empty:
+                # Métriques globales
+                col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+                with col_m1:
+                    st.metric("Types de logement", len(df_comparaison))
+                with col_m2:
+                    total_appels = df_comparaison["total_appels"].sum()
+                    st.metric("Total appels", f"{total_appels:,}")
+                with col_m3:
+                    meilleur_type = df_comparaison.loc[df_comparaison["taux_qualifies"].idxmax(), "type_logement"]
+                    meilleur_taux = df_comparaison["taux_qualifies"].max()
+                    st.metric("🏆 Meilleur taux", f"{meilleur_taux}%", meilleur_type)
+                with col_m4:
+                    pire_type = df_comparaison.loc[df_comparaison["taux_qualifies"].idxmin(), "type_logement"]
+                    pire_taux = df_comparaison["taux_qualifies"].min()
+                    st.metric("⚠️ Plus faible", f"{pire_taux}%", pire_type)
+                
+                st.markdown("---")
+                
+                # Graphiques comparatifs
+                col_g1, col_g2 = st.columns(2)
+                
+                with col_g1:
+                    st.subheader("📈 Taux de qualification par type")
+                    fig = px.bar(
+                        df_comparaison.sort_values("taux_qualifies"),
+                        x="taux_qualifies",
+                        y="type_logement",
+                        orientation="h",
+                        text="taux_qualifies",
+                        color="taux_qualifies",
+                        color_continuous_scale="RdYlGn",
+                        title="Quels types de logement qualifient le mieux ?"
+                    )
+                    fig.update_traces(texttemplate="%{text}%", textposition="outside")
+                    fig.update_layout(coloraxis_showscale=False)
+                    st.plotly_chart(fig, use_container_width=True)
+                
+                with col_g2:
+                    st.subheader("📊 Volume d'appels par type")
+                    fig = px.bar(
+                        df_comparaison.sort_values("total_appels"),
+                        x="total_appels",
+                        y="type_logement",
+                        orientation="h",
+                        text="total_appels",
+                        color="total_appels",
+                        color_continuous_scale="Blues",
+                        title="Quels types génèrent le plus d'appels ?"
+                    )
+                    fig.update_traces(textposition="outside")
+                    fig.update_layout(coloraxis_showscale=False)
+                    st.plotly_chart(fig, use_container_width=True)
+                
+                st.markdown("---")
+                
+                # Tableau complet
+                st.subheader("📋 Comparaison des performances")
+                st.dataframe(
+                    df_comparaison.rename(columns={
+                        "type_logement": "Type de logement",
+                        "total_appels": "Total appels",
+                        "appels_valides": "Appels valides",
+                        "taux_valides": "Taux valides (%)",
+                        "appels_qualifies": "Appels qualifiés",
+                        "taux_qualifies": "Taux qualification (%)"
+                    }),
+                    use_container_width=True,
+                    hide_index=True
+                )
+                
+                st.markdown("---")
+        
+        # =========================================================
+        # SECTION 2: ANALYSE DÉTAILLÉE PAR TYPE (SÉLECTION)
+        # =========================================================
+        # =========================================================
+# SECTION 2: ANALYSE DÉTAILLÉE PAR TYPE (SÉLECTION)
+# =========================================================
+    st.subheader("🔍 Analyse détaillée par type de logement")
 
-        with col_p:
-            st.subheader("Répartition par type de logement")
-            fig = px.pie(
-                df_tipo, names="tipo_vivienda", values="count",
-                color_discrete_sequence=PALETTE,
-                hole=0.4,
-            )
-            fig.update_traces(textinfo="percent+label")
-            fig.update_layout(showlegend=False, margin=dict(t=10, b=10))
-            st.plotly_chart(fig, use_container_width=True)
+    # Correction ici - Gérer les types mixtes (string et float)
+    try:
+        # Nettoyer et filtrer les types de logement valides
+        types_series = df["piso_casa"].dropna().astype(str).str.strip()
+        types_series = types_series[~types_series.isin(["", "nan", "None", "none", "NaN", "null", "N/A", "n/a"])]
+        types_list = sorted(types_series.unique())
+    except Exception as e:
+        st.error(f"Erreur lors du traitement des types: {e}")
+        types_list = []
 
-        with col_b:
-            st.subheader("Nombre d'appels par type")
-            fig = px.bar(
-                df_tipo.sort_values("count"),
-                x="count", y="tipo_vivienda",
-                orientation="h",
-                text="pct",
-                color="count",
-                color_continuous_scale="Purples",
-            )
-            fig.update_traces(texttemplate="%{text}%", textposition="outside")
-            fig.update_layout(
-                yaxis_title="", xaxis_title="Appels",
-                coloraxis_showscale=False, margin=dict(t=10),
-            )
-            st.plotly_chart(fig, use_container_width=True)
-
-        st.dataframe(
-            df_tipo.rename(columns={
-                "tipo_vivienda": "Type de logement",
-                "count": "Appels",
-                "pct": "%",
-            }),
-            use_container_width=True,
-            hide_index=True,
+    if types_list:
+        selected_type = st.selectbox(
+            "Choisissez un type de logement pour voir son analyse détaillée",
+            types_list
         )
+        
+        if selected_type and "error" not in analyse_types and selected_type in analyse_types:
+            data = analyse_types[selected_type]
+            
+            # Métriques pour ce type
+            col_d1, col_d2, col_d3, col_d4 = st.columns(4)
+            with col_d1:
+                st.metric("Total appels", data["total_appels"])
+            with col_d2:
+                st.metric("Appels utiles", data["appels_utiles"])
+            with col_d3:
+                st.metric("Taux utiles", f"{data['taux_utiles_pct']}%")
+            with col_d4:
+                st.metric("Taux qualification", f"{data['taux_qualifies_pct']}%")
+            
+            if data["duree_moyenne_sec"]:
+                st.metric("Durée moyenne", f"{data['duree_moyenne_sec']}s")
+            
+            st.markdown("---")
+            
+            # Répartition des classifications
+            col_r1, col_r2 = st.columns(2)
+            
+            with col_r1:
+                st.subheader("📊 Répartition des classifications")
+                if data["repartition_classifications"]:
+                    df_repart = pd.DataFrame([
+                        {"Classification": k, "Nombre": v} 
+                        for k, v in data["repartition_classifications"].items()
+                    ])
+                    fig = px.pie(
+                        df_repart,
+                        names="Classification",
+                        values="Nombre",
+                        title=f"Classifications - {selected_type}",
+                        color_discrete_sequence=PALETTE,
+                        hole=0.3
+                    )
+                    fig.update_traces(textinfo="percent+label")
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.info("Aucune classification valide pour ce type")
+            
+            with col_r2:
+                st.subheader("🏆 Top 3 classifications")
+                if data["top_classifications"]:
+                    for i, (classification, count) in enumerate(data["top_classifications"].items(), 1):
+                        pct = round(count/data['total_appels']*100, 1)
+                        st.markdown(f"""
+                        **{i}. {classification}**  
+                        → {count} appels ({pct}%)
+                        """)
+                else:
+                    st.info("Aucune donnée")
+    else:
+        st.warning("Aucun type de logement valide trouvé dans les données")
+        
+        st.markdown("---")
+        
+        # =========================================================
+        # SECTION 3: CLASSIFICATION DÉTAILLÉE POUR TOUS LES TYPES
+        # =========================================================
+        st.subheader("📋 Classification détaillée par type de logement")
+        
+        df_classif_detail = classification_detaillee_par_type(df)
+        
+        if not df_classif_detail.empty:
+            # Graphique en barres groupées
+            fig = px.bar(
+                df_classif_detail,
+                x="piso_casa",
+                y="count",
+                color="Classification",
+                title="Distribution des classifications par type de logement",
+                labels={
+                    "piso_casa": "Type de logement",
+                    "count": "Nombre d'appels",
+                    "Classification": "Classification"
+                },
+                barmode="group",
+                color_discrete_sequence=PALETTE
+            )
+            fig.update_layout(xaxis_tickangle=-45, height=500)
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Version tableau
+            with st.expander("📑 Voir le tableau détaillé"):
+                pivot_table = df_classif_detail.pivot_table(
+                    index="piso_casa",
+                    columns="Classification",
+                    values="count",
+                    fill_value=0
+                )
+                st.dataframe(pivot_table, use_container_width=True)
+            
+            # Export
+            csv = pivot_table.to_csv().encode('utf-8')
+            st.download_button(
+                label="📥 Exporter les données",
+                data=csv,
+                file_name="classification_par_type_logement.csv",
+                mime="text/csv",
+            )
+        else:
+            st.info("Aucune classification valide trouvée")
+        
+        st.markdown("---")
+        
+        # =========================================================
+        # SECTION 4: INSIGHTS ET RECOMMANDATIONS
+        # =========================================================
+        st.subheader("💡 Insights et Recommandations")
+        
+        if 'df_comparaison' in locals() and not df_comparaison.empty:
+            # Identifier le meilleur et pire type
+            meilleur = df_comparaison.loc[df_comparaison["taux_qualifies"].idxmax()]
+            pire = df_comparaison.loc[df_comparaison["taux_qualifies"].idxmin()]
+            
+            col_i1, col_i2 = st.columns(2)
+            
+            with col_i1:
+                st.success(f"""
+                **✅ Points forts**  
+                - Le type **{meilleur['type_logement']}** a le meilleur taux de qualification ({meilleur['taux_qualifies']}%)
+                - Il représente {meilleur['total_appels']} appels au total
+                """)
+            
+            with col_i2:
+                if pire['taux_qualifies'] < 20:
+                    st.warning(f"""
+                    **⚠️ Points d'attention**  
+                    - Le type **{pire['type_logement']}** a un faible taux de qualification ({pire['taux_qualifies']}%)
+                    - Seulement {pire['appels_qualifies']} appels qualifiés sur {pire['total_appels']}
+                    """)
+                else:
+                    st.info(f"✅ Tous les types ont un taux de qualification acceptable (>20%)")
+        
+        st.info("""
+        **🎯 Recommandations stratégiques :**
+        1. **Prioriser les types qui qualifient le mieux** pour les campagnes marketing
+        2. **Analyser les classifications** des types moins performants pour comprendre les freins
+        3. **Adapter le discours commercial** selon le type de logement
+        4. **Former les équipes** sur les spécificités de chaque type
+        """)
+        
+        # =========================================================
+        # SECTION 5: GRAPHIQUE ORIGINAL (garde l'ancienne vue)
+        # =========================================================
+        st.markdown("---")
+        st.subheader("📊 Vue simplifiée - Répartition générale")
+        
+        df_tipo = appels_par_piso_casa(df)
+        
+        if not df_tipo.empty:
+            col_p, col_b = st.columns(2)
+
+            with col_p:
+                st.subheader("Répartition par type de logement")
+                fig = px.pie(
+                    df_tipo, names="piso_casa", values="count",
+                    color_discrete_sequence=PALETTE,
+                    hole=0.4,
+                )
+                fig.update_traces(textinfo="percent+label")
+                fig.update_layout(showlegend=False, margin=dict(t=10, b=10))
+                st.plotly_chart(fig, use_container_width=True)
+
+            with col_b:
+                st.subheader("Nombre d'appels par type")
+                fig = px.bar(
+                    df_tipo.sort_values("count"),
+                    x="count", y="piso_casa",
+                    orientation="h",
+                    text="pct",
+                    color="count",
+                    color_continuous_scale="Purples",
+                )
+                fig.update_traces(texttemplate="%{text}%", textposition="outside")
+                fig.update_layout(
+                    yaxis_title="", xaxis_title="Appels",
+                    coloraxis_showscale=False, margin=dict(t=10),
+                )
+                st.plotly_chart(fig, use_container_width=True)
+
+            st.dataframe(
+                df_tipo.rename(columns={
+                    "piso_casa": "Type de logement",
+                    "count": "Appels",
+                    "pct": "%",
+                }),
+                use_container_width=True,
+                hide_index=True,
+            )
 # ══════════════════════════════════════════════
 # TAB 5 — AI RECOMMENDATIONS
 # ══════════════════════════════════════════════
