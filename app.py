@@ -5,21 +5,8 @@ import plotly.graph_objects as go
 from google_selector import list_sheets, choisir_feuille
 from ai_recommendation import *
 from analyse import *
-from analyse import (
-    kpi_globaux,
-    appels_par_jour,
-    appels_par_mois,
-    appels_par_heure,
-    repartition_classification,
-    appels_par_fournisseur,
-    classification_par_fournisseur,
-    appels_utiles_par_ville,
-    appels_par_piso_casa,
-    taux_remplissage_code_postal,
-    comparer_codes_postaux,
-    analyse_fiabilite_par_fournisseur,
-    codes_postaux_non_correspondants,
-)
+from ats_analysis import render_ats_tab
+
 
 # ─────────────────────────────────────────────
 # CONFIG
@@ -215,18 +202,6 @@ with st.sidebar:
 if st.session_state.df_raw is None:
     st.info("👈 Commencez par entrer l'URL de votre Google Sheet dans la barre latérale")
     
-    with st.expander("ℹ️ Comment obtenir l'URL de mon Google Sheet ?"):
-        st.markdown("""
-        1. Ouvrez votre Google Sheet
-        2. Cliquez sur le bouton **🔗 Partager** (en haut à droite)
-        3. Dans **"Accès général"**, sélectionnez : **"Toute personne disposant du lien"**
-        4. Copiez le lien fourni
-        5. Collez-le ci-dessous
-        6. Cliquez sur 'Charger les feuilles'
-        7. Sélectionnez les feuilles à analyser
-        8. Cliquez sur 'Charger les données'
-        """)
-    
     st.stop()
 
 # ─────────────────────────────────────────────
@@ -251,13 +226,13 @@ if df.empty:
 # ONGLETS
 # ─────────────────────────────────────────────
 
-tab1, tab2, tab3, tab4,tab5 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab_ats = st.tabs([
     "📊 Analyse globale",
     "🏢 Par fournisseur",
     "📍 Codes postaux & Fiabilité",
     "🏠 Logements",
     "🤖 AI Recommendations",
-
+    "📋 Analyse des ATS par IA"   # ← nouveau
 ])
 
 # ══════════════════════════════════════════════
@@ -1116,38 +1091,29 @@ with tab4:
 # ══════════════════════════════════════════════
 # TAB 5 — AI RECOMMENDATIONS
 # ══════════════════════════════════════════════
+# ── AVANT les tabs ──────────────────────────
+api_key_input = st.sidebar.text_input(
+    "🔑 Clé API Gemini",
+    type="password",
+    placeholder="AIza...",
+    key="gemini_key_global"
+)
 
+# ── Dans tab5 ───────────────────────────────
 with tab5:
     st.header("🤖 IA Décisionnelle - Recommandations Intelligentes")
     st.markdown("---")
 
-    # Initialisation Gemini
-    advisor = GeminiAdvisor()
-    with tab5:
-        st.header("🤖 IA Décisionnelle - Recommandations Intelligentes")
-        st.markdown("---")
+    if not api_key_input:
+        st.info("👈 Entrez votre clé API Gemini dans la barre latérale pour activer l'analyse IA")
+        st.stop()
 
-        # Saisie de la clé par l'utilisateur
-        api_key_input = st.text_input(
-            "🔑 Entrez votre clé API Gemini",
-            type="password",
-            placeholder="AIza...",
-            help="Obtenez votre clé sur https://aistudio.google.com"
-        )
+    advisor = GeminiAdvisor(api_key=api_key_input)
 
-        if not api_key_input:
-            st.info("👆 Entrez votre clé API Gemini pour activer l'analyse IA")
-            st.stop()
-
-        advisor = GeminiAdvisor(api_key=api_key_input)
-
-        if not advisor.is_configured:
-            st.error("❌ Clé API invalide ou erreur de connexion")
-            st.stop()
-        
+    if not advisor.is_configured:
+        st.error("❌ Clé API invalide ou erreur de connexion")
+        st.stop()        
         st.success(f"✅ IA Gemini connectée")
-    # ... reste du code identique
-
     # =========================
     # APERÇU DES DONNÉES
     # =========================
@@ -1403,3 +1369,5 @@ with tab5:
                 """)
 
     st.markdown("---")
+    with tab_ats:
+        render_ats_tab(api_key_input=api_key_input)  # réutilise la clé déjà saisie
