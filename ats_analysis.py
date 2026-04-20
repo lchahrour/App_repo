@@ -11,16 +11,6 @@ import os
 from plotly.subplots import make_subplots
 from datetime import datetime
 
-# ─────────────────────────────────────────────
-# DARK THEME CSS (injecté une seule fois)
-# ─────────────────────────────────────────────
-
-
-
-# ─────────────────────────────────────────────
-# FONCTIONS UTILITAIRES
-# ─────────────────────────────────────────────
-
 def time_to_seconds(t_str: str) -> int:
     if not t_str or t_str in ["0:00:00", "00:00:00"]:
         return 0
@@ -35,9 +25,6 @@ def time_to_seconds(t_str: str) -> int:
     except:
         return 0
 
-# ─────────────────────────────────────────────
-# PARSER CSV ATS
-# ─────────────────────────────────────────────
 
 def parse_ats_csv(content: str, filename: str) -> dict:
     result = {"filename": filename, "campaigns": []}
@@ -131,9 +118,6 @@ def ats_to_dataframe(parsed: dict) -> pd.DataFrame:
                 })
     return pd.DataFrame(rows)
 
-# ─────────────────────────────────────────────
-# TABLEAU DARK THEME — helpers
-# ─────────────────────────────────────────────
 
 def _fmt_num(n: float) -> str:
     return f"{int(n):,}".replace(",", " ")
@@ -218,9 +202,7 @@ def build_perf_html_table(liste_performance: list) -> str:
     </div>"""
 
 
-# ─────────────────────────────────────────────
-# ANALYSE AVANCÉE DES PERFORMANCES ATS
-# ─────────────────────────────────────────────
+
 
 def analyze_ats_performance(all_parsed: list) -> dict:
     DISPO_XFER    = ["XFER", "TRANSFERT", "TRANSFER", "TRF"]
@@ -385,9 +367,6 @@ def analyze_ats_performance(all_parsed: list) -> dict:
 
     return analysis_result
 
-# ─────────────────────────────────────────────
-# ANALYSE AMD
-# ─────────────────────────────────────────────
 
 def analyze_amd_performance(all_parsed: list) -> dict:
     amd_stats = {
@@ -1531,11 +1510,22 @@ def render_ats_tab(api_key_input: str = None):
 
     @st.cache_data(ttl=300)
     def load_auto_files():
-        files = glob.glob("data/report_*.csv")
-        files = [f for f in files if "latest" not in f]
-        return sorted(files)
+        # Ancien format
+        old = glob.glob("data/report_*.csv")
+        old = [f for f in old if "latest" not in f]
 
-    auto_files = load_auto_files()
+        # Nouveau format serveur 1
+        server1 = glob.glob("data/server1_report_*.csv")
+        server1 = [f for f in server1 if "latest" not in f]
+
+        # Nouveau format serveur 2
+        server2 = glob.glob("data/server2_report_*.csv")
+        server2 = [f for f in server2 if "latest" not in f]
+
+        return sorted(old), sorted(server1), sorted(server2)
+
+    old_files, server1_files, server2_files = load_auto_files()
+    auto_files = old_files + server1_files + server2_files
 
     if os.path.exists("data/last_update.txt"):
         with open("data/last_update.txt", "r") as f:
@@ -1545,25 +1535,40 @@ def render_ats_tab(api_key_input: str = None):
     all_files = []
 
     if auto_files:
+        # Grouper par source
+        options_grouped = {}
+        if old_files:
+            options_grouped["📁 Ancien format"] = [os.path.basename(f) for f in old_files]
+        if server1_files:
+            options_grouped["🖥️ Serveur 1"] = [os.path.basename(f) for f in server1_files]
+        if server2_files:
+            options_grouped["🖥️ Serveur 2"] = [os.path.basename(f) for f in server2_files]
+
         noms_fichiers = [os.path.basename(f) for f in auto_files]
+
+        # Afficher le détail par serveur
+        for label, noms in options_grouped.items():
+            st.caption(f"{label} : {len(noms)} fichier(s)")
+
         fichiers_selectionnes = st.multiselect(
             " Fichiers disponibles (repo GitHub)",
             options=noms_fichiers,
             default=noms_fichiers,
             placeholder="Choisissez un ou plusieurs fichiers..."
         )
+
         for f in auto_files:
             if os.path.basename(f) in fichiers_selectionnes:
                 with open(f, "r", encoding="utf-8", errors="replace") as file:
                     content = file.read()
                     all_files.append({"name": os.path.basename(f), "content": content})
+
         if fichiers_selectionnes:
             st.success(f" {len(fichiers_selectionnes)} fichier(s) sélectionné(s)")
         else:
             st.warning(" Aucun fichier sélectionné")
     else:
-        st.info("📭 Aucun fichier trouvé dans le repo (data/report_*.csv)")
-
+        st.info("📭 Aucun fichier trouvé dans le repo (data/report_*.csv / server1_report_*.csv / server2_report_*.csv)")
     uploaded_files = st.file_uploader(
         "➕ Ajouter des fichiers CSV manuellement",
         type=["csv", "txt"],
