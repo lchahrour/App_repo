@@ -1163,8 +1163,9 @@ def resumer_ats_pour_gemini(all_parsed: list) -> dict:
 
 def analyser_ats_avec_gemini(api_key: str, summary: dict) -> dict | None:
     try:
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-2.5-flash")
+        client = genai.Client(api_key=api_key)
+        model_name = "gemini-2.5-flash"
+        is_configured = True
     except Exception as e:
         st.error(f" Erreur connexion Gemini: {e}")
         return None
@@ -1205,7 +1206,10 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ou après, sans balises mar
 }}
 """
     try:
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(
+            model=model_name,
+            contents=prompt
+        )
         text = response.text.strip()
         text = re.sub(r'^```json\s*', '', text)
         text = re.sub(r'^```\s*',     '', text)

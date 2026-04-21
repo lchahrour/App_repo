@@ -8,42 +8,40 @@ import re
 class GeminiAdvisor:
     def __init__(self, api_key=None):
         if not api_key:
-            self.model = None
+            self.client = None
             self.is_configured = False
             return
         
         try:
-            genai.configure(api_key=api_key)
-            self.model = genai.GenerativeModel("gemini-2.5-flash")
+            self.client = genai.Client(api_key=api_key)
             self.model_name = "gemini-2.5-flash"
             self.is_configured = True
             
         except Exception as e:
             st.error(f"❌ Erreur de configuration: {str(e)}")
-            self.model = None
+            self.client = None
             self.is_configured = False
     
     def analyser_tous_les_volets(self, df):
         if not self.is_configured:
             return None
         
-        # On calcule le contexte côté Python (pas Gemini)
         contexte = self._preparer_contexte_complet(df)
-        
-        # On demande à Gemini uniquement les recommandations textuelles
         prompt = self._construire_prompt(contexte)
         
         try:
-            response = self.model.generate_content(prompt)
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=prompt
+            )
             recommandations_ia = self._parser_reponse(response.text)
             
             if recommandations_ia is None:
                 return None
             
-            # On fusionne les données calculées + les recommandations IA
             return {
-                **contexte,                    # analyse_fournisseurs, analyse_horaire, analyse_logements
-                **recommandations_ia           # resume_executif, actions_prioritaires, recommandations, prediction
+                **contexte,
+                **recommandations_ia
             }
         except Exception as e:
             st.error(f"Erreur API Gemini: {str(e)}")
@@ -154,19 +152,17 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ou après, sans balises mar
     def _parser_reponse(self, response_text):
         try:
             text = response_text.strip()
-            # Nettoyer les balises markdown
             text = re.sub(r'^```json\s*', '', text)
             text = re.sub(r'^```\s*', '', text)
             text = re.sub(r'\s*```$', '', text)
             text = text.strip()
             
-            # Extraire le JSON
             json_match = re.search(r'\{.*\}', text, re.DOTALL)
             if json_match:
                 return json.loads(json_match.group())
             
             st.error("Aucun JSON trouvé dans la réponse Gemini")
-            st.code(response_text[:500])  # Afficher pour debug
+            st.code(response_text[:500])
             return None
         except json.JSONDecodeError as e:
             st.error(f"Erreur parsing JSON: {str(e)}")
