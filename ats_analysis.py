@@ -171,7 +171,7 @@ def build_perf_html_table(liste_performance: list) -> str:
 
         liste_cell = (
             f'{_rank_icon(i)}'
-            f'<span style="color:#e6edf3">#{list_id} — {short[:35]}</span>'
+            f'<span style="color:#E2E8F0; font-weight:600; letter-spacing:0.5px;">#{list_id} — {short[:35]}</span>'
             f'{adc_badge}'
         )
 
@@ -837,25 +837,25 @@ def display_advanced_ats_analysis(all_parsed: list):
     st.subheader("🖥️ Performance × Qualification")
 
     if analysis["liste_performance"]:
-        # ← CORRECTION : st.markdown() vide supprimé, remplacé par le CSS inline
+        # ← CORRECTION : Design System Ultra-Premium Glassmorphism
         css = """
         <style>
-        .perf-table-wrap { overflow-x: auto; }
-        .perf { width: 100%; border-collapse: collapse; font-family: monospace; font-size: 13px; }
-        .perf th { background: #161b22; color: #8b949e; padding: 8px; text-align: left; border-bottom: 1px solid #30363d; }
-        .perf td { padding: 7px 10px; border-bottom: 1px solid #21262d; color: #c9d1d9; }
-        .perf tr:hover td { background: #1c2128; }
-        .val-blue { color: #58a6ff; font-weight: bold; }
-        .val-orange { color: #f0883e; font-weight: bold; }
-        .val-yellow { color: #e3b341; }
-        .val-green { color: #3fb950; }
-        .val-dim { color: #8b949e; }
-        .badge-adc { background: #da3633; color: white; border-radius: 3px; padding: 1px 5px; font-size: 11px; margin-left: 5px; }
-        .rank-gold { color: #e3b341; margin-right: 4px; }
-        .rank-silver { color: #8b949e; margin-right: 4px; }
-        .rank-bullet { color: #30363d; margin-right: 4px; }
-        .perf-title { color: #58a6ff; font-family: monospace; font-size: 14px; margin-bottom: 8px; }
-        .perf-title span { color: #e3b341; }
+        .perf-table-wrap { overflow-x: auto; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(16px); border-radius: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.08); margin-top: 16px; margin-bottom: 24px;}
+        .perf { width: 100%; border-collapse: collapse; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 14px; }
+        .perf th { background: rgba(255,255,255,0.03); color: #94A3B8; padding: 14px 18px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.08); font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: 0.1em; }
+        .perf td { padding: 14px 18px; border-bottom: 1px solid rgba(255,255,255,0.03); color: #F8FAFC; transition: background 0.2s; }
+        .perf tr:hover td { background: rgba(255,255,255,0.05); }
+        .val-blue { color: #818CF8; font-weight: 600; }
+        .val-orange { color: #FBBF24; font-weight: 600; }
+        .val-yellow { color: #FCD34D; }
+        .val-green { color: #34D399; }
+        .val-dim { color: #64748B; }
+        .badge-adc { background: rgba(239, 68, 68, 0.2); color: #FCA5A5; border: 1px solid rgba(239,68,68,0.5); border-radius: 6px; padding: 3px 8px; font-size: 10px; margin-left: 8px; font-weight: 700; letter-spacing: 1px; }
+        .rank-gold { color: #FBBF24; margin-right: 8px; text-shadow: 0 0 8px rgba(251, 191, 36, 0.4); }
+        .rank-silver { color: #94A3B8; margin-right: 8px; }
+        .rank-bullet { color: #334155; margin-right: 8px; }
+        .perf-title { color: #F8FAFC; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 16px; font-weight: 700; margin-bottom: 12px; letter-spacing: 0.05em; }
+        .perf-title span { color: #818CF8; font-weight: 800; }
         </style>
         """
         st.markdown(css, unsafe_allow_html=True)

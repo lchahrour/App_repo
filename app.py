@@ -26,7 +26,161 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-PALETTE = px.colors.qualitative.Set2
+def inject_custom_css():
+    st.markdown("""
+        <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+        /* GLOBAL BACKGROUND MESH & TYPOGRAPHY */
+        html, body, [class*="css"] {
+            font-family: 'Plus Jakarta Sans', sans-serif !important;
+        }
+
+        [data-testid="stAppViewContainer"] {
+            background-color: #030014;
+            background-image: 
+                radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
+                radial-gradient(at 50% 0%, hsla(225,39%,30%,0.2) 0, transparent 50%), 
+                radial-gradient(at 100% 0%, hsla(339,49%,30%,0.2) 0, transparent 50%) !important;
+            background-attachment: fixed;
+            color: #F8FAFC !important;
+        }
+
+        /* THE SIDEBAR GLASSMORPHISM */
+        [data-testid="stSidebar"] {
+            background: rgba(15, 23, 42, 0.4) !important;
+            backdrop-filter: blur(24px) !important;
+            -webkit-backdrop-filter: blur(24px) !important;
+            border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+        }
+
+        /* PREMIUM METRIC CARDS */
+        [data-testid="stMetric"] {
+            background: rgba(255, 255, 255, 0.03) !important;
+            backdrop-filter: blur(16px) !important;
+            -webkit-backdrop-filter: blur(16px) !important;
+            border-radius: 16px !important;
+            padding: 24px !important;
+            border: 1px solid rgba(255, 255, 255, 0.08) !important;
+            box-shadow: 0 4px 24px -1px rgba(0, 0, 0, 0.1) !important;
+            transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1) !important;
+        }
+        [data-testid="stMetric"]:hover {
+            transform: translateY(-4px) scale(1.02) !important;
+            background: rgba(255, 255, 255, 0.05) !important;
+            border-color: rgba(139, 92, 246, 0.4) !important; /* purple glow */
+            box-shadow: 0 10px 40px -10px rgba(139, 92, 246, 0.2) !important;
+        }
+        [data-testid="stMetricValue"], [data-testid="stMetricValue"] > div {
+            font-weight: 800 !important;
+            font-size: 1.6rem !important;
+            background: linear-gradient(to right, #ffffff, #a5b4fc) !important;
+            -webkit-background-clip: text !important;
+            -webkit-text-fill-color: transparent !important;
+            white-space: normal !important;
+            text-overflow: clip !important;
+            overflow: visible !important;
+            word-wrap: break-word !important;
+        }
+        [data-testid="stMetricLabel"] {
+            font-weight: 600 !important;
+            letter-spacing: 0.05em !important;
+            color: #94A3B8 !important;
+            text-transform: uppercase !important;
+            font-size: 0.75rem !important;
+        }
+
+        /* SEGMENTED CONTROL TABS */
+        div[data-testid="stTabs"] {
+            background: rgba(15, 23, 42, 0.3) !important;
+            border-radius: 12px !important;
+            padding: 6px !important;
+            border: 1px solid rgba(255, 255, 255, 0.05) !important;
+            backdrop-filter: blur(12px) !important;
+            margin-bottom: 24px !important;
+        }
+        div[data-testid="stTabs"] button {
+            border-radius: 8px !important;
+            padding: 8px 16px !important;
+            font-weight: 600 !important;
+            color: #94A3B8 !important;
+            transition: all 0.2s !important;
+            border: none !important;
+            background: transparent !important;
+        }
+        div[data-testid="stTabs"] button[aria-selected="true"] {
+            background: rgba(255, 255, 255, 0.1) !important;
+            color: #FFFFFF !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2) !important;
+        }
+        div[data-testid="stTabs"] button:hover:not([aria-selected="true"]) {
+            color: #FFFFFF !important;
+            background: rgba(255, 255, 255, 0.03) !important;
+        }
+
+        /* DATAFRAMES AND EXPANDERS GLASS */
+        [data-testid="stDataFrame"], [data-testid="stExpander"] {
+            background: rgba(15, 23, 42, 0.4) !important;
+            backdrop-filter: blur(16px) !important;
+            border: 1px solid rgba(255, 255, 255, 0.08) !important;
+            border-radius: 16px !important;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2) !important;
+        }
+
+        /* BUTTONS */
+        button[kind="primary"] {
+            background: linear-gradient(135deg, #8B5CF6 0%, #3B82F6 100%) !important;
+            border-radius: 12px !important;
+            font-weight: 600 !important;
+            border: none !important;
+            color: white !important;
+            box-shadow: 0 4px 14px 0 rgba(139, 92, 246, 0.39) !important;
+            transition: all 0.2s ease !important;
+        }
+        button[kind="primary"]:hover {
+            transform: translateY(-2px) !important;
+            box-shadow: 0 6px 20px rgba(139, 92, 246, 0.6) !important;
+        }
+        button[kind="secondary"] {
+            background: rgba(255, 255, 255, 0.03) !important;
+            backdrop-filter: blur(10px) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            border-radius: 12px !important;
+            color: #F8FAFC !important;
+            transition: all 0.2s ease !important;
+        }
+        button[kind="secondary"]:hover {
+            background: rgba(255, 255, 255, 0.08) !important;
+            border-color: rgba(255, 255, 255, 0.2) !important;
+        }
+
+        /* GRADIENT TITLES */
+        h1 {
+            font-weight: 800 !important;
+            background: linear-gradient(to right, #FFFFFF 20%, #a5b4fc 100%) !important;
+            -webkit-background-clip: text !important;
+            -webkit-text-fill-color: transparent !important;
+            letter-spacing: -0.04em !important;
+        }
+        h2, h3 {
+            color: #F8FAFC !important;
+            font-weight: 700 !important;
+            letter-spacing: -0.02em !important;
+        }
+
+        /* HIDE NATIVE PLOTLY BACKGROUNDS */
+        .stPlotlyChart {
+            background: transparent !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+
+# Application globale du CSS dès le démarrage
+inject_custom_css()
+
+# Premium SaaS Palette (Deep Indigo, Emerald, Amber, Rose, Violet, Blue, Teal)
+PALETTE = ["#5E6AD2", "#10B981", "#F59E0B", "#F43F5E", "#8B5CF6", "#3B82F6", "#14B8A6", "#64748B"]
 
 # ─────────────────────────────────────────────
 # SESSION STATE INITIALIZATION
