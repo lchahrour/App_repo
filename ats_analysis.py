@@ -10,7 +10,8 @@ import glob
 import os
 from plotly.subplots import make_subplots
 from datetime import datetime
-from server2_analysis import *
+from server2_analysis import parse_server2_csv, normalize_server2, render_server2_section
+from typing import Optional
 
 
 def time_to_seconds(t_str: str) -> int:
@@ -1184,7 +1185,7 @@ def resumer_ats_pour_gemini(all_parsed: list) -> dict:
 # GEMINI ANALYSE
 # ─────────────────────────────────────────────
 
-def analyser_ats_avec_gemini(api_key: str, summary: dict) -> dict | None:
+def analyser_ats_avec_gemini(api_key: str, summary: dict) -> Optional[dict]:
     try:
         client = genai.Client(api_key=api_key)
         model_name = "gemini-2.5-flash"

@@ -3,11 +3,17 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import json
 from google_selector import list_sheets, choisir_feuille
-from ai_recommendation import *
-from analyse import *
-from ats_analysis import *
-
+from ai_recommendation import GeminiAdvisor
+from analyse import (
+    kpi_globaux, appels_par_jour, appels_par_mois, appels_par_heure,
+    repartition_classification, appels_par_fournisseur, classification_par_fournisseur,
+    taux_remplissage_code_postal, comparer_codes_postaux, analyse_fiabilite_par_fournisseur,
+    codes_postaux_non_correspondants, analyse_par_type_logement,
+    comparer_types_logement, classification_detaillee_par_type, appels_par_piso_casa
+)
+from ats_analysis import render_ats_tab
 
 # ─────────────────────────────────────────────
 # CONFIG

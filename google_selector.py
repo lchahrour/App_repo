@@ -2,7 +2,7 @@ import pandas as pd
 import io
 import requests
 
-def list_sheets(sheet_url):
+def list_sheets(sheet_url: str) -> tuple[io.BytesIO, list]:
     """
     Retourne le fichier en mémoire et la liste des feuilles
     """
@@ -21,7 +21,7 @@ def list_sheets(sheet_url):
     return fichier, sheets
 
 
-def choisir_feuille(fichier, sheet_name):
+def choisir_feuille(fichier: io.BytesIO, sheet_name: str) -> pd.DataFrame:
     """
     Lire une feuille spécifique depuis le fichier déjà téléchargé
     """

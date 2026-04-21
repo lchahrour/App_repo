@@ -196,7 +196,7 @@ def render_server2_section(server2_files: list):
         df_recap["Durée tot."] = df_recap["Durée_tot_sec"].apply(lambda x: fmt_sec(int(x)))
         df_recap["Part %"]     = (df_recap["Appels"] / df_recap["Appels"].sum() * 100).round(1).astype(str) + "%"
         st.dataframe(df_recap[["categorie_statut", "Appels", "Part %", "Durée moy.", "Durée tot."]].rename(
-            columns={"categorie_statut": "Catégorie"}), width='stretch', hide_index=True)  # ← corrigé
+            columns={"categorie_statut": "Catégorie"}), use_container_width=True, hide_index=True)
 
         if "length_in_sec" in df.columns:
             st.markdown("#### Durée moyenne par statut (top 10)")
@@ -236,7 +236,7 @@ def render_server2_section(server2_files: list):
 
         st.markdown("#### Tableau complet agents")
         st.dataframe(df_agent[["user", "Appels", "Succès", "Taux succès %", "Durée moy.", "Durée tot."]].rename(
-            columns={"user": "Agent"}), width='stretch', hide_index=True)  # ← corrigé
+            columns={"user": "Agent"}), use_container_width=True, hide_index=True)
 
         if len(df_agent) >= 3:
             st.markdown("#### Volume vs Taux de succès")
@@ -321,7 +321,7 @@ def render_server2_section(server2_files: list):
                 last_status = df.sort_values("call_date").groupby("lead_id")["status"].last().reset_index()
                 top_leads = top_leads.merge(last_status, on="lead_id", how="left")
                 top_leads.columns = ["Lead ID", "Nb appels", "Dernier statut"]
-            st.dataframe(top_leads, width='stretch', hide_index=True)  # ← corrigé
+            st.dataframe(top_leads, use_container_width=True, hide_index=True)
 
             if "categorie_statut" in df.columns:
                 st.markdown("#### ♻️ Potentiel recyclage")
@@ -357,7 +357,7 @@ def render_server2_section(server2_files: list):
         cols_display = [c for c in ["call_date", "lead_id", "list_id", "campaign_id",
                                      "user", "phone_number", "status", "categorie_statut",
                                      "length_in_sec", "_source_file"] if c in df_filtered.columns]
-        st.dataframe(df_filtered[cols_display].head(500), width='stretch', hide_index=True)  # ← corrigé
+        st.dataframe(df_filtered[cols_display].head(500), use_container_width=True, hide_index=True)
 
         csv = df_filtered.to_csv(index=False, sep=";", decimal=",").encode("utf-8-sig")
         st.download_button("📥 Exporter les données filtrées (CSV)", data=csv,
