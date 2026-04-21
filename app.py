@@ -1408,7 +1408,15 @@ with tab5:
             mime="application/json",
             use_container_width=True
         )
+        import traceback
 
-    st.markdown("---")
+
+        try:
+            # tout votre code ici
+            pass
+        except Exception as e:
+            st.error(f"Erreur : {e}")
+            st.code(traceback.format_exc())
+            st.markdown("---")
     with tab_ats:
         render_ats_tab(api_key_input=api_key_input)  # réutilise la clé déjà saisie
