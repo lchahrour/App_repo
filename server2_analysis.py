@@ -170,10 +170,9 @@ def render_server2_section(server2_files: list):
         try:
             with open(path, "r", encoding="utf-8", errors="replace") as f:
                 content = f.read()
-                st.code(content[:300]) 
+                
             df_raw = parse_server2_csv(content, os.path.basename(path))
-            st.write("Colonnes détectées:", df_raw.columns.tolist())
-            st.write("Nb lignes:", len(df_raw))
+            
             df_norm = normalize_server2(df_raw)
             if not df_norm.empty:
                 dfs.append(df_norm)
