@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 from google_selector import list_sheets, choisir_feuille
 from ai_recommendation import *
 from analyse import *
-from ats_analysis import render_ats_tab
+from ats_analysis import *
 
 
 # ─────────────────────────────────────────────
