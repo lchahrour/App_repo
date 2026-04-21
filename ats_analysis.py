@@ -12,6 +12,7 @@ from plotly.subplots import make_subplots
 from datetime import datetime
 from server2_analysis import *
 
+
 def time_to_seconds(t_str: str) -> int:
     if not t_str or t_str in ["0:00:00", "00:00:00"]:
         return 0
@@ -1518,26 +1519,34 @@ def render_ats_tab(api_key_input: str = None):
 
     st.subheader("📤 Sélectionner les fichiers ATS")
 
+   
+
     @st.cache_data(ttl=300)
     def load_auto_files():
-        # Ancien format
-        old = glob.glob("data/report_*.csv")
-        old = [f for f in old if "latest" not in f]
-        # Nouveau format serveur 1
-        server1 = glob.glob("data/server1_report_*.csv")
+        # Chemin absolu basé sur l'emplacement du script
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        data_dir = os.path.join(base_dir, "data")
+
+        old     = glob.glob(os.path.join(data_dir, "report_*.csv"))
+        old     = [f for f in old if "latest" not in f]
+
+        server1 = glob.glob(os.path.join(data_dir, "server1_report_*.csv"))
         server1 = [f for f in server1 if "latest" not in f]
-        # Nouveau format serveur 2
-        server2 = glob.glob("data/server2_report_*.csv")
+
+        server2 = glob.glob(os.path.join(data_dir, "server2_report_*.csv"))
         server2 = [f for f in server2 if "latest" not in f]
+
         return sorted(old), sorted(server1), sorted(server2)
 
     old_files, server1_files, server2_files = load_auto_files()
     all_server1 = old_files + server1_files  # fichiers ATS structurés (Serveur 1)
 
-    if os.path.exists("data/last_update.txt"):
-        with open("data/last_update.txt", "r") as f:
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    update_path = os.path.join(base_dir, "data", "last_update.txt")
+
+    if os.path.exists(update_path):
+        with open(update_path, "r") as f:
             last_update_str = f.read().strip()
-        st.caption(f" Dernière mise à jour GitHub Actions : {last_update_str}")
 
     # ── Résumé disponibilité ──────────────────
     col_info1, col_info2, col_info3 = st.columns(3)
