@@ -1,1 +1,7 @@
-# Empty requirements for diagnostic
+streamlit==1.40.0
+pandas==2.2.3
+plotly==5.24.1
+numpy==1.26.4
+openpyxl==3.1.5
+google-genai==1.0.0
+requests
