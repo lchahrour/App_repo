@@ -3,20 +3,6 @@ import sys
 import subprocess
 import os
 
-# --- AUTO-REPAIR SECTION ---
-# If Streamlit Cloud fails to read requirements.txt, we force install missing libs
-def force_install(package):
-    try:
-        __import__(package.replace("-", "_"))
-    except ImportError:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", package])
-
-# Primary dependencies check
-for lib in ["pandas", "plotly", "openpyxl", "google-genai", "requests"]:
-    try:
-        force_install(lib)
-    except Exception:
-        pass
 
 # --- REAL APP START ---
 try:
