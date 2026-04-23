@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Server 2 CSV files (too large for Streamlit Cloud - upload manually)
+data/server2_report_*.csv
+
+# OS
+.DS_Store
+
+# Build
+*.spec
+dist/
+build/
